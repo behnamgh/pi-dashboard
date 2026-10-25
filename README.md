@@ -127,6 +127,8 @@ If running in a terminal, stop with Ctrl+C first. Never copy only the main datab
 
 ## Checks
 
+To debug automations under PM2, run `pm2 logs hearth --lines 30`, then trigger the real accessory change. Each event request produces a JSON `event_request` line with device, status, HTTP response code, event ID (on success), and source IP. Tokens and query strings are excluded. HTTP 200 means recorded; 401 means token mismatch; 400 means invalid status/input; 404 means unknown/archived entry. No matching line means the event route did not receive the request; compare a Home app manual test with the real trigger and check the hub's network access. These diagnostics require the updated server files and a PM2 restart. To watch packets without printing URL contents, `sudo tcpdump -ni any -q 'tcp dst port 3000'` can establish whether network traffic reaches the Pi; it cannot establish that an event was accepted.
+
 ```sh
 npm test
 npm run build

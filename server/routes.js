@@ -1,19 +1,25 @@
 import { Router } from 'express';
 import { ROOMS } from '../shared/contracts.js';
-import { archiveEntry, getEntry, listEntries, saveEntry } from './entries.js';
+import { archiveEntry, getEntry, listEntries, saveEntry, validSlug } from './entries.js';
 import { listEvents, recordEvent, usageEvents } from './events.js';
 import { aggregateUsage } from './stats.js';
 import { addDays, dateKey, dayStart } from './calendar.js';
 import { authorizeEvent, authorizeWrite } from './security.js';
 import { requireValue } from './errors.js';
 
-export function apiRoutes({ db, token, origin, timeZone, now }) {
+export function apiRoutes({ db, token, origin, timeZone, now, eventLogger }) {
   const router = Router();
   router.use((_req, res, next) => { res.set('Cache-Control', 'no-store'); next(); });
   router.all('/event/:device/:status', (req, res) => {
+    const device = validSlug(req.params.device) ? req.params.device : '[invalid]';
+    const status = validSlug(req.params.status) ? req.params.status : '[invalid]';
+    const method = req.method, source = req.socket.remoteAddress || 'unknown';
+    let eventId = null;
+    res.once('finish', () => eventLogger({ kind: 'event_request', timestamp: now().toISOString(), method, device, status, httpStatus: res.statusCode, eventId, source }));
     requireValue(req.method === 'GET', 'Use GET for event ingestion.', 405, 'method_not_allowed');
     authorizeEvent(req, token);
     const event = recordEvent(db, { entrySlug: req.params.device, statusSlug: req.params.status, occurredAt: now().toISOString() });
+    eventId = event.id;
     res.json({ event: { id: event.id, occurredAt: event.occurredAt } });
   });
   router.use((req, _res, next) => { if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method)) authorizeWrite(req, origin); next(); });

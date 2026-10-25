@@ -52,3 +52,13 @@ test('production serves built assets without exposing data and dashboard reflect
   assert.equal(dashboard.body.days.length, 7);
   assert.equal((await inject(app, { url: '/api/dashboard?roomId=bathroom' })).body.entries.length, 0);
 });
+test('event request diagnostics distinguish accepted and rejected calls without logging secrets', async t => {
+  const { db } = setup(t); const records = [];
+  const app = loaded.createApp({ db, token: 'test-token', eventLogger: record => records.push(record) });
+  for (const url of ['/api/event/plant/watered?token=test-token', '/api/event/plant/watered?token=private-wrong-token', '/api/event/plant/off?token=test-token', '/api/event/missing/watered?token=test-token']) await inject(app, { url });
+  assert.deepEqual(records.map(r => r.httpStatus), [200, 401, 400, 404]);
+  assert.equal(records[0].device, 'plant'); assert.equal(records[0].status, 'watered'); assert.equal(records[0].method, 'GET');
+  assert.equal(records[0].eventId, 1); assert.equal(records[1].eventId, null);
+  assert.ok(records.every(r => r.kind === 'event_request' && r.timestamp));
+  assert.ok(!JSON.stringify(records).includes('test-token')); assert.ok(!JSON.stringify(records).includes('private-wrong-token'));
+});
