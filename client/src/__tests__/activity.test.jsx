@@ -1,0 +1,20 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { environment } from './helpers.js';
+import { ActivityLog } from '../pages/ActivityLog.jsx';
+test('room link initializes the filter and moved archived entries remain available in history', async t => {
+  const ui = environment(t); const requested = [];
+  const transport = { get: async path => { requested.push(path); return path.startsWith('/api/entries') ? { entries: [{ id: 7, name: 'Monstera', roomId: 'bathroom', archived: true, statuses: [{ slug: 'watered', label: 'Watered' }] }] } : { items: [{ id: 1, entryName: 'Monstera', roomId: 'bedroom', statusLabel: 'Watered', occurredAt: '2026-10-25T10:00:00Z', archived: true }], total: 51, page: 1, pageSize: 50 }; } };
+  await ui.render(<ActivityLog initialRoomId="bedroom" timeZone="Europe/Berlin" transport={transport}/>);
+  assert.equal(ui.container.querySelector('#log-room').value, 'bedroom');
+  assert.match(ui.container.querySelector('#log-device').textContent, /Monstera.*Archived/);
+  assert.ok(requested.some(p => p.includes('historyRoomId=bedroom')));
+  await ui.change(ui.container.querySelector('#log-device'), '7');
+  assert.ok(requested.some(p => p.includes('entryId=7')));
+  await ui.click([...ui.container.querySelectorAll('button')].find(b => b.textContent === 'Next'));
+  assert.ok(requested.some(p => p.includes('page=2')));
+  await ui.change(ui.container.querySelector('#log-room'), 'living-room');
+  assert.equal(ui.container.querySelector('#log-device').value, '');
+  const last = requested.filter(p => p.startsWith('/api/events')).at(-1);
+  assert.ok(last.includes('page=1')); assert.ok(!last.includes('entryId='));
+});

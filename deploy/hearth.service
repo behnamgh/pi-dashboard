@@ -1,0 +1,21 @@
+[Unit]
+Description=Hearth local home dashboard
+After=network.target
+
+[Service]
+Type=simple
+# Replace this with the non-root user that owns your project and data directory.
+User=pi
+WorkingDirectory=/home/pi/pi-dashboard
+EnvironmentFile=/home/pi/pi-dashboard/.env
+# Replace /usr/bin/node with the absolute output of `command -v node` on your Pi.
+ExecStart=/usr/bin/node server/index.js
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=15
+NoNewPrivileges=true
+PrivateTmp=true
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target
